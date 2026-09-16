@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CVP Аудит">
+<title>Аудит кухни — Cocoon View Point</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#1C1B19;
+    --panel:#232019;
+    --panel-2:#2A2620;
+    --border:#3A362E;
+    --text:#F2EEE4;
+    --muted:#A69C87;
+    --good:#5C8A46;
+    --warn:#C98A2C;
+    --bad:#B5432E;
+    --neutral:#54503F;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',-apple-system,system-ui,sans-serif;}
+  body{padding-bottom:calc(84px + env(safe-area-inset-bottom));}
+  h1,h2,h3{font-family:'Oswald',sans-serif; margin:0;}
+
+  /* HEADER */
+  header{
+    position:sticky; top:0; z-index:20;
+    background:var(--bg);
+    padding:calc(14px + env(safe-area-inset-top)) 16px 12px;
+    border-bottom:1px solid var(--border);
+  }
+  .venue-tag{
+    font-family:'Oswald',sans-serif; font-weight:600; letter-spacing:.06em;
+    font-size:12px; color:var(--warn); text-transform:uppercase;
+  }
+  .header-row{display:flex; align-items:flex-end; justify-content:space-between; margin-top:2px;}
+  h1{font-size:26px; font-weight:600; letter-spacing:.01em;}
+  .score-badge{
+    min-width:58px; height:58px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Oswald',sans-serif; font-weight:600; font-size:18px;
+    background:var(--neutral); color:var(--text); border:2px solid var(--border);
+    flex-shrink:0;
+  }
+  .score-badge.good{background:rgba(92,138,70,.18); border-color:var(--good); color:#9BC787;}
+  .score-badge.warn{background:rgba(201,138,44,.18); border-color:var(--warn); color:#E0AA5B;}
+  .score-badge.bad{background:rgba(181,67,46,.18); border-color:var(--bad); color:#E08972;}
+
+  .status-line{
+    margin-top:6px; font-size:12px; font-weight:600; letter-spacing:.02em;
+  }
+  .status-line.good{color:#9BC787;}
+  .status-line.warn{color:#E0AA5B;}
+  .status-line.bad{color:#E08972;}
+
+  .meta-row{display:flex; gap:8px; margin-top:12px;}
+  .meta-field{flex:1; display:flex; flex-direction:column; gap:4px;}
+  .meta-field label{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;}
+  .meta-field input{
+    background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
+    color:var(--text); font-size:14px; padding:8px 10px; font-family:'Inter',sans-serif;
+  }
+  .meta-field input:focus{outline:none; border-color:var(--warn);}
+
+  /* CATEGORIES */
+  main{padding:14px 12px 0;}
+  .category{
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    margin-bottom:10px; overflow:hidden;
+  }
+  .cat-header{
+    display:flex; align-items:center; gap:10px; padding:14px 14px;
+    cursor:pointer; user-select:none;
+  }
+  .cat-num{
+    font-family:'Oswald',sans-serif; font-size:20px; font-weight:600; color:var(--muted);
+    width:26px; flex-shrink:0;
+  }
+  .cat-title{flex:1;}
+  .cat-title h2{font-size:15px; font-weight:600; letter-spacing:.03em; text-transform:uppercase;}
+  .cat-sub{font-size:12px; color:var(--muted); margin-top:2px;}
+  .cat-score{font-family:'Oswald',sans-serif; font-size:15px; color:var(--muted); flex-shrink:0;}
+  .chevron{width:10px; height:10px; border-right:2px solid var(--muted); border-bottom:2px solid var(--muted); transform:rotate(-45deg); transition:transform .2s; flex-shrink:0; margin-right:4px;}
+  .category.open .chevron{transform:rotate(45deg);}
+
+  .cat-items{max-height:0; overflow:hidden; transition:max-height .25s ease;}
+  .category.open .cat-items{max-height:5000px;}
+
+  .item{padding:12px 14px; border-top:1px solid var(--border);}
+  .item-text{font-size:14px; line-height:1.4; margin-bottom:10px;}
+  .score-row{display:flex; gap:6px; margin-bottom:8px;}
+  .score-btn{
+    flex:1; padding:8px 2px 7px; text-align:center; border-radius:8px; border:1px solid var(--border);
+    background:var(--panel-2); color:var(--muted); cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:2px;
+  }
+  .score-num{font-size:14px; font-weight:700; line-height:1;}
+  .score-caption{font-size:9px; line-height:1.15; font-weight:500; text-transform:uppercase; letter-spacing:.01em; opacity:.85;}
+  .score-btn[data-active="1"].s0{background:rgba(181,67,46,.22); border-color:var(--bad); color:#E08972;}
+  .score-btn[data-active="1"].s1{background:rgba(201,138,44,.22); border-color:var(--warn); color:#E0AA5B;}
+  .score-btn[data-active="1"].s2{background:rgba(92,138,70,.15); border-color:var(--good); color:#9BC787;}
+  .score-btn[data-active="1"].s3{background:rgba(92,138,70,.28); border-color:var(--good); color:#B7DE9E;}
+
+  textarea.comment{
+    width:100%; background:var(--panel-2); border:1px solid var(--border); border-radius:8px;
+    color:var(--text); font-size:13px; padding:8px 10px; font-family:'Inter',sans-serif;
+    resize:none; min-height:36px; margin-bottom:8px;
+  }
+  textarea.comment:focus{outline:none; border-color:var(--warn);}
+  textarea.comment::placeholder{color:var(--muted);}
+
+  .photo-row{display:flex; gap:8px; align-items:center; overflow-x:auto; padding-bottom:2px;}
+  .photo-add{
+    flex-shrink:0; width:52px; height:52px; border-radius:8px; border:1px dashed var(--border);
+    display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:22px;
+    background:var(--panel-2);
+  }
+  .thumb{position:relative; flex-shrink:0; width:52px; height:52px; border-radius:8px; overflow:hidden; border:1px solid var(--border);}
+  .thumb img{width:100%; height:100%; object-fit:cover; display:block;}
+  .thumb .rm{
+    position:absolute; top:1px; right:1px; width:16px; height:16px; border-radius:50%;
+    background:rgba(0,0,0,.65); color:#fff; font-size:11px; line-height:16px; text-align:center;
+  }
+
+  /* FOOTER */
+  footer{
+    position:fixed; bottom:0; left:0; right:0; z-index:20;
+    background:var(--panel); border-top:1px solid var(--border);
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    display:flex; align-items:center; gap:12px;
+  }
+  .footer-stat{font-size:12px; color:var(--muted); line-height:1.3;}
+  .footer-stat b{color:var(--text); font-family:'Oswald',sans-serif; font-size:14px;}
+  #exportBtn{
+    margin-left:auto; background:var(--warn); color:#1C1B19; border:none; border-radius:9px;
+    padding:12px 18px; font-family:'Oswald',sans-serif; font-weight:600; font-size:14px;
+    letter-spacing:.02em; cursor:pointer;
+  }
+  #exportBtn:active{opacity:.85;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="venue-tag">Cocoon View Point · текущая кухня</div>
+  <div class="header-row">
+    <h1>Аудит кухни</h1>
+    <div id="scoreBadge" class="score-badge">—</div>
+  </div>
+  <div id="statusLine" class="status-line"></div>
+  <div class="meta-row">
+    <div class="meta-field">
+      <label>Аудитор</label>
+      <input id="auditorInput" type="text" placeholder="Имя">
+    </div>
+    <div class="meta-field">
+      <label>Дата</label>
+      <input id="dateInput" type="date">
+    </div>
+  </div>
+</header>
+
+<main id="categories"></main>
+
+<footer>
+  <div class="footer-stat"><b id="ratedCount">0/0</b> пунктов оценено</div>
+  <button id="exportBtn">Экспорт в Excel</button>
+</footer>
+
+<input type="file" id="fileInput" accept="image/*" capture="environment" multiple style="display:none">
+
+<script>
+const DATA = [
+  {
+    name: "Хранение и температурный режим",
+    items: [
+      "Продукты хранятся по правилу FIFO, старые партии — впереди",
+      "Сырое и готовое хранятся раздельно, нет риска перекрёстного заражения",
+      "Все ёмкости закрыты, промаркированы датой открытия/приготовления"
+    ]
+  },
+  {
+    name: "Гигиена и санитария",
+    items: [
+      "Персонал в чистой форме, волосы убраны, ногти без лака/украшений",
+      "Мытьё рук: станции оборудованы мылом, полотенцами, дезинфектором",
+      "Аптечка укомплектована, доступ к ней свободен"
+    ]
+  },
+  {
+    name: "Подача и качество блюд",
+    items: [
+      "Блюдо визуально соответствует фото-эталону из ТТК",
+      "Порционный вес соответствует норме ТТК (± допустимое отклонение)",
+      "Вкус и температура подачи соответствуют стандарту дегустации",
+      "Посуда чистая, без сколов, соответствует утверждённой матрице",
+      "Тайминг выхода блюда укладывается в норматив кухни"
+    ]
+  }
+];
+
+const SCORE_LABELS = [
+  { num: "0", caption: "Критично" },
+  { num: "1", caption: "Замечания" },
+  { num: "2", caption: "Норма" },
+  { num: "3", caption: "Отлично" }
+];
+const state = DATA.map(cat => ({
+  name: cat.name,
+  items: cat.items.map(text => ({ text, score: null, comment: "", photos: [] }))
+}));
+
+const categoriesEl = document.getElementById('categories');
+
+function render(){
+  categoriesEl.innerHTML = "";
+  state.forEach((cat, ci) => {
+    const catEl = document.createElement('div');
+    catEl.className = 'category';
+    catEl.dataset.open = "0";
+
+    const { achieved, max, rated } = catStats(cat);
+    const scoreText = rated === 0 ? "—" : `${achieved}/${max}`;
+
+    catEl.innerHTML = `
+      <div class="cat-header">
+        <div class="cat-num">${ci+1}</div>
+        <div class="cat-title">
+          <h2>${cat.name}</h2>
+          <div class="cat-sub">${cat.items.length} пунктов</div>
+        </div>
+        <div class="cat-score">${scoreText}</div>
+        <div class="chevron"></div>
+      </div>
+      <div class="cat-items"></div>
+    `;
+    catEl.querySelector('.cat-header').addEventListener('click', () => {
+      catEl.classList.toggle('open');
+    });
+
+    const itemsWrap = catEl.querySelector('.cat-items');
+    cat.items.forEach((item, ii) => {
+      const itemEl = document.createElement('div');
+      itemEl.className = 'item';
+      itemEl.innerHTML = `
+        <div class="item-text">${item.text}</div>
+        <div class="score-row">
+          ${SCORE_LABELS.map((label, si) => `<div class="score-btn s${si}" data-active="${item.score===si ? 1 : 0}" data-ci="${ci}" data-ii="${ii}" data-si="${si}"><span class="score-num">${label.num}</span><span class="score-caption">${label.caption}</span></div>`).join("")}
+        </div>
+        <textarea class="comment" placeholder="Комментарий (необязательно)" data-ci="${ci}" data-ii="${ii}">${item.comment}</textarea>
+        <div class="photo-row" data-ci="${ci}" data-ii="${ii}">
+          <div class="photo-add" data-ci="${ci}" data-ii="${ii}">+</div>
+        </div>
+      `;
+      itemsWrap.appendChild(itemEl);
+    });
+
+    categoriesEl.appendChild(catEl);
+  });
+
+  // wire score buttons
+  categoriesEl.querySelectorAll('.score-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ci = +btn.dataset.ci, ii = +btn.dataset.ii, si = btn.dataset.si;
+      const item = state[ci].items[ii];
+      const val = +si;
+      item.score = (item.score === val) ? null : val;
+      render();
+      updateHeader();
+    });
+  });
+
+  // wire comments
+  categoriesEl.querySelectorAll('textarea.comment').forEach(ta => {
+    ta.addEventListener('input', () => {
+      const ci = +ta.dataset.ci, ii = +ta.dataset.ii;
+      state[ci].items[ii].comment = ta.value;
+    });
+  });
+
+  // wire photo add
+  categoriesEl.querySelectorAll('.photo-add').forEach(btn => {
+    btn.addEventListener('click', () => {
+      pendingPhotoTarget = { ci: +btn.dataset.ci, ii: +btn.dataset.ii };
+      document.getElementById('fileInput').click();
+    });
+  });
+
+  // render existing photos + remove buttons
+  state.forEach((cat, ci) => {
+    cat.items.forEach((item, ii) => {
+      const row = categoriesEl.querySelector(`.photo-row[data-ci="${ci}"][data-ii="${ii}"]`);
+      item.photos.forEach((src, pi) => {
+        const thumb = document.createElement('div');
+        thumb.className = 'thumb';
+        thumb.innerHTML = `<img src="${src}"><div class="rm" data-ci="${ci}" data-ii="${ii}" data-pi="${pi}">×</div>`;
+        row.insertBefore(thumb, row.firstChild);
+      });
+    });
+  });
+  categoriesEl.querySelectorAll('.thumb .rm').forEach(rm => {
+    rm.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const ci = +rm.dataset.ci, ii = +rm.dataset.ii, pi = +rm.dataset.pi;
+      state[ci].items[ii].photos.splice(pi, 1);
+      render();
+    });
+  });
+
+  // restore open state visually not persisted between renders by default; keep all closed except none
+}
+
+let pendingPhotoTarget = null;
+document.getElementById('fileInput').addEventListener('change', (e) => {
+  const files = Array.from(e.target.files || []);
+  if(!files.length || !pendingPhotoTarget) return;
+  const { ci, ii } = pendingPhotoTarget;
+  let remaining = files.length;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      state[ci].items[ii].photos.push(reader.result);
+      remaining--;
+      if(remaining === 0) render();
+    };
+    reader.readAsDataURL(file);
+  });
+  e.target.value = "";
+});
+
+function catStats(cat){
+  let achieved = 0, max = 0, rated = 0;
+  cat.items.forEach(item => {
+    if(item.score === null) return;
+    achieved += item.score;
+    max += 3;
+    rated++;
+  });
+  return { achieved, max, rated };
+}
+
+function getStatus(pct){
+  if(pct >= 90) return { cls: "good", label: "Зачёт" };
+  if(pct >= 80) return { cls: "warn", label: "Частичное прохождение (50%)" };
+  return { cls: "bad", label: "Незачёт" };
+}
+
+function updateHeader(){
+  let achieved = 0, max = 0, ratedTotal = 0, itemTotal = 0;
+  state.forEach(cat => {
+    cat.items.forEach(item => {
+      itemTotal++;
+      if(item.score !== null){ achieved += item.score; max += 3; ratedTotal++; }
+    });
+  });
+  const badge = document.getElementById('scoreBadge');
+  const statusLine = document.getElementById('statusLine');
+  document.getElementById('ratedCount').textContent = `${ratedTotal}/${itemTotal}`;
+  if(max === 0){
+    badge.textContent = "—";
+    badge.className = "score-badge";
+    statusLine.textContent = "";
+    statusLine.className = "status-line";
+    return;
+  }
+  const pct = Math.round((achieved / max) * 100);
+  const status = getStatus(pct);
+  badge.textContent = pct + "%";
+  badge.className = "score-badge " + status.cls;
+  statusLine.textContent = status.label;
+  statusLine.className = "status-line " + status.cls;
+}
+
+// init date
+document.getElementById('dateInput').valueAsDate = new Date();
+
+render();
+updateHeader();
+
+// EXPORT
+document.getElementById('exportBtn').addEventListener('click', async () => {
+  const auditor = document.getElementById('auditorInput').value || "—";
+  const date = document.getElementById('dateInput').value || "—";
+
+  let totalAchieved = 0, totalMax = 0;
+  const summaryRows = [["Раздел", "Баллы", "Из максимума", "%"]];
+  const detailRows = [["Раздел", "Пункт", "Оценка", "Комментарий", "Фото приложено"]];
+
+  state.forEach(cat => {
+    const { achieved, max } = catStats(cat);
+    totalAchieved += achieved; totalMax += max;
+    summaryRows.push([cat.name, achieved, max, max ? Math.round(achieved/max*100)+"%" : "—"]);
+    cat.items.forEach(item => {
+      detailRows.push([
+        cat.name,
+        item.text,
+        item.score === null ? "не оценено" : item.score,
+        item.comment || "",
+        item.photos.length
+      ]);
+    });
+  });
+
+  const overallPctNum = totalMax ? Math.round(totalAchieved/totalMax*100) : null;
+  const overallPct = overallPctNum === null ? "—" : overallPctNum + "%";
+  const overallStatus = overallPctNum === null ? "—" : getStatus(overallPctNum).label;
+
+  const infoRows = [
+    ["Аудит кухни — Cocoon View Point"],
+    ["Аудитор", auditor],
+    ["Дата", date],
+    ["Итоговый балл", `${totalAchieved}/${totalMax}`, overallPct],
+    ["Статус", overallStatus],
+    ["Критерии", ">=90% — зачёт · 80–89% — частичное прохождение (50%) · <80% — незачёт"],
+    []
+  ];
+
+  const wb = XLSX.utils.book_new();
+  const wsSummary = XLSX.utils.aoa_to_sheet([...infoRows, ...summaryRows]);
+  wsSummary['!cols'] = [{wch:32},{wch:12},{wch:14},{wch:8}];
+  XLSX.utils.book_append_sheet(wb, wsSummary, "Сводка");
+
+  const wsDetail = XLSX.utils.aoa_to_sheet(detailRows);
+  wsDetail['!cols'] = [{wch:24},{wch:55},{wch:12},{wch:40},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, wsDetail, "Детали");
+
+  const fname = `CVP_audit_${date || 'no-date'}.xlsx`;
+  const xlsxType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+  const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const blob = new Blob([wbout], { type: xlsxType });
+
+  let shared = false;
+  try {
+    const file = new File([blob], fname, { type: xlsxType });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: fname });
+      shared = true;
+    }
+  } catch (err) {
+    // user cancelled the share sheet, or share failed — fall back to download below
+    if (err && err.name === "AbortError") shared = true; // cancelled on purpose, don't force-download
+  }
+
+  if (!shared) {
+    XLSX.writeFile(wb, fname);
+  }
+});
+</script>
+</body>
+</html>
